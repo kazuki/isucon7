@@ -13,6 +13,7 @@ import threading
 
 import datetime
 import redis
+import pickle
 
 TLS = threading.local()
 
@@ -83,7 +84,7 @@ def get_initialize():
         ch_id = row['id']
         cur.execute('SELECT * FROM message WHERE channel_id = %s ORDER BY id DESC LIMIT 100', (ch_id,))
         for r in cur.fetchall():
-            redis_client.rpush(ch_id, (
+            redis_client.rpush(ch_id, pickle.dumps(
                 r['id'], r['user_id'],
                 r['created_at'].strftime("%Y/%m/%d %H:%M:%S"), r['content']))
     cur.close()
@@ -102,7 +103,7 @@ def db_add_message(cur, channel_id, user_id, content):
     cur.execute('SELECT last_insert_id()')
     message_id = cur.fetchone()[0]
     redis_client = get_redis()
-    redis_client.lpush(channel_id, (
+    redis_client.lpush(channel_id, pickle.dumps(
         message_id, user_id,
         created_at.strftime("%Y/%m/%d %H:%M:%S"), content))
     redis_client.ltrim(0, 99)
@@ -235,7 +236,8 @@ def get_message():
 
     response = []
     user_list = set()
-    for (mid, user_id, created_at, content) in redis_client.lrange(channel_id, 0, 99):
+    for raw in redis_client.lrange(channel_id, 0, 99):
+        (mid, user_id, created_at, content) = pickle.loads(raw)
         r = {}
         if mid <= last_message_id:
             continue
