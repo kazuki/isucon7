@@ -401,10 +401,11 @@ def get_icon(file_name):
         if not row:
             flask.abort(404)
             return
-        with tempfile.NamedTemporaryFile() as f:
+
+        fd, temp_path = tempfile.mkstemp()
+        with os.fdopen(fd) as f:
             f.write(row['data'])
-            f.flush()
-            os.rename(f.name, cache_path)
+        os.rename(temp_path, cache_path)
     return flask.send_file(cache_path, mimetype=mime)
 
 
