@@ -79,14 +79,17 @@ def get_initialize():
     channels = cur.fetchall()
     redis_client = get_redis()
     redis_client.flushall()
+    last_ch_id = None
     for ch_id in channels:
         cur.execute('SELECT * FROM message WHERE channel_id = %s ORDER BY id DESC LIMIT 100', (ch_id,))
         for r in cur.fetchall():
             redis_client.lpush(ch_id,
                 r['id'], r['user_id'],
                 r['created_at'].strftime("%Y/%m/%d %H:%M:%S"), r['content'])
+        last_ch_id = ch_id
     cur.close()
-    return ('', 204)
+    # return ('', 204)
+    return (str(redis_client.get(last_ch_id)), 200)
 
 
 def db_get_user(cur, user_id):
