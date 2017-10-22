@@ -11,6 +11,7 @@ import tempfile
 import time
 import threading
 
+import datetime
 import redis
 
 TLS = threading.local()
@@ -81,9 +82,9 @@ def get_initialize():
     for ch_id in channels:
         cur.execute('SELECT * FROM message WHERE channel_id = %s ORDER BY id DESC LIMIT 100', (ch_id,))
         for r in cur.fetchall():
-            redis_client.rpush(ch_id, (
+            redis_client.lpush(ch_id,
                 r['id'], r['user_id'],
-                r['created_at'].strftime("%Y/%m/%d %H:%M:%S"), r['content']))
+                r['created_at'].strftime("%Y/%m/%d %H:%M:%S"), r['content'])
     cur.close()
     return ('', 204)
 
@@ -94,9 +95,16 @@ def db_get_user(cur, user_id):
 
 
 def db_add_message(cur, channel_id, user_id, content):
-    # redisに追加(LPUSH) & LTRIM
-    cur.execute("INSERT INTO message (channel_id, user_id, content, created_at) VALUES (%s, %s, %s, NOW())",
-                (channel_id, user_id, content))
+    created_at = datetime.datetime.now()
+    cur.execute("INSERT INTO message (channel_id, user_id, content, created_at) VALUES (%s, %s, %s, %s)",
+                (channel_id, user_id, content, created_at))
+    cur.execute('SELECT last_insert_id()')
+    message_id = cur.fetchone()[0]
+    redis_client = get_redis()
+    redis_client.lpush(channel_id,
+                       message_id, user_id,
+                       created_at.strftime("%Y/%m/%d %H:%M:%S"), content)
+    redis_client.ltrim(0, 99)
 
 
 def login_required(func):
