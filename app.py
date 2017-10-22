@@ -406,8 +406,8 @@ def get_icon(file_name):
             f.close()
             try:
                 os.rename(f.name, cache_path)
-            except Exception:
-                pass
+            except Exception as e:
+                print(e)
     return flask.send_file(cache_path, mimetype=mime)
 
 
