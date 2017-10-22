@@ -403,11 +403,8 @@ def get_icon(file_name):
             return
         with tempfile.NamedTemporaryFile() as f:
             f.write(row['data'])
-            f.close()
-            try:
-                os.rename(f.name, cache_path)
-            except Exception as e:
-                print(e)
+            f.flush()
+            os.rename(f.name, cache_path)
     return flask.send_file(cache_path, mimetype=mime)
 
 
