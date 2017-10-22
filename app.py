@@ -9,6 +9,9 @@ import random
 import string
 import tempfile
 import time
+import threading
+
+TLS = threading.local()
 
 
 static_folder = pathlib.Path(__file__).resolve().parent.parent / 'public'
@@ -29,10 +32,10 @@ config = {
 
 
 def dbh():
-    if hasattr(flask.g, 'db'):
-        return flask.g.db
+    if hasattr(TLS, 'db'):
+        return TLS.db
 
-    flask.g.db = MySQLdb.connect(
+    TLS.db = MySQLdb.connect(
         host   = config['db_host'],
         port   = config['db_port'],
         user   = config['db_user'],
@@ -42,15 +45,16 @@ def dbh():
         cursorclass= MySQLdb.cursors.DictCursor,
         autocommit = True,
     )
-    cur = flask.g.db.cursor()
+    cur = TLS.db.cursor()
     cur.execute("SET SESSION sql_mode='TRADITIONAL,NO_AUTO_VALUE_ON_ZERO,ONLY_FULL_GROUP_BY'")
-    return flask.g.db
+    return TLS.db
 
 
 @app.teardown_appcontext
 def teardown(error):
-    if hasattr(flask.g, "db"):
-        flask.g.db.close()
+    #if hasattr(flask.g, "db"):
+    #    flask.g.db.close()
+    pass
 
 
 @app.route('/initialize')
