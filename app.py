@@ -403,7 +403,7 @@ def get_icon(file_name):
             return
 
         fd, temp_path = tempfile.mkstemp()
-        with os.fdopen(fd) as f:
+        with os.fdopen(fd, 'wb') as f:
             f.write(row['data'])
         os.rename(temp_path, cache_path)
     return flask.send_file(cache_path, mimetype=mime)
