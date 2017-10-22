@@ -202,15 +202,28 @@ def get_message():
                 (last_message_id, channel_id))
     rows = cur.fetchall()
     response = []
+    user_list = set()
     for row in rows:
         r = {}
         r['id'] = row['id']
-        cur.execute("SELECT name, display_name, avatar_icon FROM user WHERE id = %s", (row['user_id'],))
-        r['user'] = cur.fetchone()
+        user_list.add(row['user_id'])
+        r['user'] = row['user_id']
         r['date'] = row['created_at'].strftime("%Y/%m/%d %H:%M:%S")
         r['content'] = row['content']
         response.append(r)
-    response.reverse()
+
+    user_cache = {}
+    if user_list:
+        cur.execute("SELECT id, name, display_name, avatar_icon FROM user WHERE id in (" + ','.join([str(u) for u in user_list]) + ')')
+        for u in cur.fetchall():
+            user_cache[u['id']] = {
+                'name': u['name'],
+                'display_name': u['display_name'],
+                'avatar_icon': u['avatar_icon'],
+            }
+        for r in response:
+            r['user'] = user_cache[r['user']]
+        response.reverse()
 
     max_message_id = max(r['id'] for r in rows) if rows else 0
     cur.execute('INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at)'
