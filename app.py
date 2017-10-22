@@ -405,7 +405,10 @@ def get_icon(file_name):
         fd, temp_path = tempfile.mkstemp()
         with os.fdopen(fd, 'wb') as f:
             f.write(row['data'])
-        os.rename(temp_path, cache_path)
+        try:
+            os.rename(temp_path, cache_path)
+        except:
+            pass
     return flask.send_file(cache_path, mimetype=mime)
 
 
