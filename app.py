@@ -387,14 +387,28 @@ def ext2mime(ext):
 
 @app.route('/icons/<file_name>')
 def get_icon(file_name):
-    cur = dbh().cursor()
-    cur.execute("SELECT * FROM image WHERE name = %s", (file_name,))
-    row = cur.fetchone()
+    cache_path = os.path.join(icons_folder, file_name)
     ext = os.path.splitext(file_name)[1] if '.' in file_name else ''
     mime = ext2mime(ext)
-    if row and mime:
-        return flask.Response(row['data'], mimetype=mime)
-    flask.abort(404)
+    if not mime:
+        flask.abort(404)
+        return
+
+    if not os.path.isfile(cache_path):
+        cur = dbh().cursor()
+        cur.execute("SELECT * FROM image WHERE name = %s", (file_name,))
+        row = cur.fetchone()
+        if not row:
+            flask.abort(404)
+            return
+        with tempfile.NamedTemporaryFile() as f:
+            f.write(row['data'])
+            f.close()
+            try:
+                os.rename(f.name, cache_path)
+            except Exception:
+                pass
+    return flask.send_file(cache_path, mimetype=mime)
 
 
 if __name__ == "__main__":
