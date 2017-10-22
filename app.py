@@ -33,6 +33,13 @@ config = {
 }
 
 
+def get_redis():
+    if hasattr(TLS, 'redis'):
+        return TLS.redis
+    TLS.redis = redis.StrictRedis(host=config['db_host'], port=6379, db=0)
+    return TLS.redis
+
+
 def dbh():
     if hasattr(TLS, 'db'):
         return TLS.db
@@ -67,10 +74,15 @@ def get_initialize():
     cur.execute("DELETE FROM channel WHERE id > 10")
     cur.execute("DELETE FROM message WHERE id > 10000")
     cur.execute("DELETE FROM haveread")
-    cur.execute('SELECT * FROM message ORDER BY id DESC LIMIT 100')
-    for r in cur.fetchall():
-        # redisに追加
-        pass
+    cur.execute("SELECT id FROM channel")
+    channels = cur.fetchall()
+    redis_client = get_redis()
+    for ch_id in channels:
+        cur.execute('SELECT * FROM message WHERE channel_id = %s ORDER BY id DESC LIMIT 100', ch_id)
+        for r in cur.fetchall():
+            redis_client.rpush(ch_id, (
+                r['id'], r['user_id'],
+                r['created_at'].strftime("%Y/%m/%d %H:%M:%S"), r['content']))
     cur.close()
     return ('', 204)
 
