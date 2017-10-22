@@ -351,12 +351,14 @@ def post_profile():
             if ext not in ('.jpg', '.jpeg', '.png', '.gif'):
                 flask.abort(400)
 
-            with tempfile.TemporaryFile() as f:
+            abort_flag = False
+            fd, temp_path = tempfile.mkstemp()
+            with os.fdopen(fd, 'w+b') as f:
                 file.save(f)
                 f.flush()
 
                 if avatar_max_size < f.tell():
-                    flask.abort(400)
+                    abort_flag = True
 
                 f.seek(0)
                 data = f.read()
@@ -364,6 +366,16 @@ def post_profile():
 
                 avatar_name = digest + ext
                 avatar_data = data
+            try:
+                cache_path = os.path.join(icons_folder, avatar_name)
+                os.rename(temp_path, cache_path)
+            except:
+                try:
+                    os.unlink(temp_path)
+                except:
+                    pass
+            if abort_flag:
+                flask.abort(400)
 
     if avatar_name and avatar_data:
         cur.execute("INSERT INTO image (name, data) VALUES (%s, _binary %s)", (avatar_name, avatar_data))
@@ -392,7 +404,13 @@ def get_icon(file_name):
     mime = ext2mime(ext)
     if not mime:
         flask.abort(404)
-        return
+
+    if flask.request.headers.get('If-None-Match') == file_name:
+        res = flask.Response()
+        res.status_code = 304
+        res.headers['Content-Type'] = mime
+        res.headers['ETag'] = file_name
+        return res
 
     if not os.path.isfile(cache_path):
         cur = dbh().cursor()
@@ -400,7 +418,6 @@ def get_icon(file_name):
         row = cur.fetchone()
         if not row:
             flask.abort(404)
-            return
 
         fd, temp_path = tempfile.mkstemp()
         with os.fdopen(fd, 'wb') as f:
@@ -408,8 +425,13 @@ def get_icon(file_name):
         try:
             os.rename(temp_path, cache_path)
         except:
-            pass
-    return flask.send_file(cache_path, mimetype=mime)
+            try:
+                os.unlink(temp_path)
+            except:
+                pass
+    res = flask.send_file(cache_path, add_etags=False, mimetype=mime)
+    res.headers['ETag'] = file_name
+    return res
 
 
 if __name__ == "__main__":
