@@ -11,6 +11,8 @@ import tempfile
 import time
 import threading
 
+import redis
+
 TLS = threading.local()
 
 
@@ -65,6 +67,10 @@ def get_initialize():
     cur.execute("DELETE FROM channel WHERE id > 10")
     cur.execute("DELETE FROM message WHERE id > 10000")
     cur.execute("DELETE FROM haveread")
+    cur.execute('SELECT * FROM message ORDER BY id DESC LIMIT 100')
+    for r in cur.fetchall():
+        # redisに追加
+        pass
     cur.close()
     return ('', 204)
 
@@ -75,6 +81,7 @@ def db_get_user(cur, user_id):
 
 
 def db_add_message(cur, channel_id, user_id, content):
+    # redisに追加(LPUSH) & LTRIM
     cur.execute("INSERT INTO message (channel_id, user_id, content, created_at) VALUES (%s, %s, %s, NOW())",
                 (channel_id, user_id, content))
 
