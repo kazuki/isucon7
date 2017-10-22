@@ -80,8 +80,8 @@ def get_initialize():
     redis_client = get_redis()
     redis_client.flushall()
     ret = ''
-    for ch_id in channels:
-        cur.execute('SELECT * FROM message WHERE channel_id = %s ORDER BY id DESC LIMIT 100', (ch_id,))
+    for row in channels:
+        cur.execute('SELECT * FROM message WHERE channel_id = %s ORDER BY id DESC LIMIT 100', (row['id'],))
         for r in cur.fetchall():
             redis_client.lpush(ch_id,
                 r['id'], r['user_id'],
