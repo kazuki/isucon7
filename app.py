@@ -106,7 +106,7 @@ def db_add_message(cur, channel_id, user_id, content):
     redis_client.lpush(channel_id, pickle.dumps((
         message_id, user_id,
         created_at.strftime("%Y/%m/%d %H:%M:%S"), content)))
-    redis_client.ltrim(0, 99)
+    redis_client.ltrim(0, 200)
 
 
 def login_required(func):
