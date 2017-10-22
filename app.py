@@ -83,9 +83,9 @@ def get_initialize():
         ch_id = row['id']
         cur.execute('SELECT * FROM message WHERE channel_id = %s ORDER BY id DESC LIMIT 100', (ch_id,))
         for r in cur.fetchall():
-            redis_client.lpush(ch_id,
+            redis_client.rpush(ch_id, (
                 r['id'], r['user_id'],
-                r['created_at'].strftime("%Y/%m/%d %H:%M:%S"), r['content'])
+                r['created_at'].strftime("%Y/%m/%d %H:%M:%S"), r['content']))
     cur.close()
     return ('', 204)
 
@@ -102,9 +102,9 @@ def db_add_message(cur, channel_id, user_id, content):
     cur.execute('SELECT last_insert_id()')
     message_id = cur.fetchone()[0]
     redis_client = get_redis()
-    redis_client.lpush(channel_id,
-                       message_id, user_id,
-                       created_at.strftime("%Y/%m/%d %H:%M:%S"), content)
+    redis_client.lpush(channel_id, (
+        message_id, user_id,
+        created_at.strftime("%Y/%m/%d %H:%M:%S"), content))
     redis_client.ltrim(0, 99)
 
 
@@ -231,11 +231,24 @@ def get_message():
     channel_id = int(flask.request.args.get('channel_id'))
     last_message_id = int(flask.request.args.get('last_message_id'))
     cur = dbh().cursor()
+    redis_client = get_redis()
+
+    response = []
+    user_list = set()
+    for (mid, user_id, created_at, content) in redis_client.lrange(channel_id, 0, 99):
+        r = {}
+        if mid <= last_message_id:
+            continue
+        r['id'] = mid
+        user_list.add(user_id)
+        r['user'] = user_id
+        r['date'] = created_at
+        r['content'] = content
+        response.append(r)
+    '''
     cur.execute("SELECT * FROM message WHERE id > %s AND channel_id = %s ORDER BY id DESC LIMIT 100",
                 (last_message_id, channel_id))
     rows = cur.fetchall()
-    response = []
-    user_list = set()
     for row in rows:
         r = {}
         r['id'] = row['id']
@@ -244,6 +257,7 @@ def get_message():
         r['date'] = row['created_at'].strftime("%Y/%m/%d %H:%M:%S")
         r['content'] = row['content']
         response.append(r)
+    '''
 
     user_cache = {}
     if user_list:
