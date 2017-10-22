@@ -422,14 +422,15 @@ def get_icon(file_name):
     if not mime:
         flask.abort(404)
 
-    if flask.request.headers.get('If-None-Match') == file_name:
+    exists = os.path.isfile(cache_path)
+    if flask.request.headers.get('If-None-Match') == file_name and exists:
         res = flask.Response()
         res.status_code = 304
         res.headers['Content-Type'] = mime
         res.headers['ETag'] = file_name
         return res
 
-    if not os.path.isfile(cache_path):
+    if not exists:
         cur = dbh().cursor()
         cur.execute("SELECT * FROM image WHERE name = %s", (file_name,))
         row = cur.fetchone()
