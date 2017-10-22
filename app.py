@@ -84,9 +84,9 @@ def get_initialize():
         ch_id = row['id']
         cur.execute('SELECT * FROM message WHERE channel_id = %s ORDER BY id DESC LIMIT 100', (ch_id,))
         for r in cur.fetchall():
-            redis_client.rpush(ch_id, pickle.dumps(
+            redis_client.rpush(ch_id, pickle.dumps((
                 r['id'], r['user_id'],
-                r['created_at'].strftime("%Y/%m/%d %H:%M:%S"), r['content']))
+                r['created_at'].strftime("%Y/%m/%d %H:%M:%S"), r['content'])))
     cur.close()
     return ('', 204)
 
@@ -103,9 +103,9 @@ def db_add_message(cur, channel_id, user_id, content):
     cur.execute('SELECT last_insert_id()')
     message_id = cur.fetchone()[0]
     redis_client = get_redis()
-    redis_client.lpush(channel_id, pickle.dumps(
+    redis_client.lpush(channel_id, pickle.dumps((
         message_id, user_id,
-        created_at.strftime("%Y/%m/%d %H:%M:%S"), content))
+        created_at.strftime("%Y/%m/%d %H:%M:%S"), content)))
     redis_client.ltrim(0, 99)
 
 
@@ -233,6 +233,7 @@ def get_message():
     last_message_id = int(flask.request.args.get('last_message_id'))
     cur = dbh().cursor()
     redis_client = get_redis()
+    max_message_id = 0
 
     response = []
     user_list = set()
@@ -247,6 +248,7 @@ def get_message():
         r['date'] = created_at
         r['content'] = content
         response.append(r)
+        max_message_id = max(max_message_id, mid)
     '''
     cur.execute("SELECT * FROM message WHERE id > %s AND channel_id = %s ORDER BY id DESC LIMIT 100",
                 (last_message_id, channel_id))
@@ -274,7 +276,7 @@ def get_message():
             r['user'] = user_cache[r['user']]
         response.reverse()
 
-    max_message_id = max(r['id'] for r in rows) if rows else 0
+    # max_message_id = max(r['id'] for r in rows) if rows else 0
     cur.execute('INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at)'
                 ' VALUES (%s, %s, %s, NOW(), NOW())'
                 ' ON DUPLICATE KEY UPDATE message_id = %s, updated_at = NOW()',
